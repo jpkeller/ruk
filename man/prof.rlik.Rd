@@ -4,12 +4,13 @@
 \alias{prof.rlik}
 \title{Evaluates profile likelihood function for (regionalized) universal kriging.}
 \usage{
-prof.rlik(x, R, coords, reg.ind, y, useSTpackage = TRUE)
+prof.rlik(pars, X, coords, reg.ind, y, cov.model = "exp",
+  useSTpackage = TRUE)
 }
 \arguments{
-\item{x}{Log covariance parameters}
+\item{pars}{Log covariance parameters}
 
-\item{R}{Kriging covariate model matrix}
+\item{X}{Kriging covariate model matrix}
 
 \item{coords}{Coordinates}
 
@@ -17,14 +18,21 @@ prof.rlik(x, R, coords, reg.ind, y, useSTpackage = TRUE)
 
 \item{y}{Observed outcome values.}
 
+\item{cov.model}{Covariance model for each region.}
+
 \item{useSTpackage}{See details.}
 }
 \description{
 To do.
 }
 \details{
-If the SpatioTemporal package is available, uses block cholesky
-		functions within that package.
+If the SpatioTemporal package is available, 
+	uses block cholesky functions within that package for
+	improved performance.
+
+	This function is primarily intended to be called
+	via \code{\link{rlikfit}}, and thus has limited 
+	checking of arguments.
 }
 \author{
 Paul Sampson, Josh Keller

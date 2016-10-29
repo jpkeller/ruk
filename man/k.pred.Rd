@@ -19,7 +19,8 @@ k.pred(reg.dat, dim.X, beta, log.cov.pars)
 Internal function for computing kriging predictions (i.e. conditional expectations).
 }
 \details{
-Not intended to be called directly. See \code{\link{predict.rlikfit}} for
+Not intended to be called directly. See 
+ \code{\link{predict.rlikfit}} for
 	making kriging predictions from an \code{rlikfit} object.
 }
 \keyword{internal}

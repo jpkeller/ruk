@@ -4,14 +4,17 @@
 \alias{block.Sig}
 \title{Creates block sigma}
 \usage{
-block.Sig(l.pars, coords, reg.ind)
+block.Sig(pars, coords, reg.ind, cov.model)
 }
 \arguments{
-\item{l.pars}{Log covariance parameters}
+\item{pars}{Log covariance parameters for the regionalized kriging model.
+See \code{\link{rlikfit}}.}
 
-\item{coords}{Coordiantes}
+\item{coords}{Coordinates of the locations}
 
 \item{reg.ind}{Vector of region indicators}
+
+\item{cov.model}{Covariance models for each region.}
 }
 \description{
 To do.
@@ -20,6 +23,6 @@ To do.
 Details to be added.
 }
 \author{
-Paul Sampson, Josh Keller
+Paul Sampson, Joshua Keller
 }
 

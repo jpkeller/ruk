@@ -4,24 +4,31 @@
 \alias{inf.beta}
 \title{Infers Beta from maximized covariance pars.}
 \usage{
-inf.beta(l.pars, X, coords, reg.ind, y, Sig = NULL, useSTpackage = TRUE)
+inf.beta(pars, X, coords, reg.ind, y, cov.model = NULL, Sig = NULL,
+  useSTpackage = TRUE)
 }
 \arguments{
-\item{l.pars}{Log covariance parameters}
+\item{pars}{Log covariance parameters}
 
 \item{X}{kriging covariates}
 
-\item{coords}{Coordiantes}
+\item{coords}{Coordinates}
 
 \item{reg.ind}{Vector of region indicators}
 
 \item{y}{outcome variable}
 
-\item{Sig}{block-diagonal covariance matrix. Default value is \code{NULL}, and the
-matrix is computed by a call to \code{\link{block.Sig}}. 
-If it is already computed, providing it can speed up code.}
+\item{cov.model}{Covariance model specifications. Not required if \code{Sig}
+provided.}
+
+\item{Sig}{block-diagonal covariance matrix. Default value is \code{NULL},
+and the matrix is computed by a call to \code{\link{block.Sig}}. 
+ If it is already computed, providing it can speed up code.}
 
 \item{useSTpackage}{See Details.}
+}
+\value{
+A vector of the regression parameters.
 }
 \description{
 Computes estimates of regression coefficients from

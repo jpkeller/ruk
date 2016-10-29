@@ -16,7 +16,8 @@
 ##
 ##' @description Internal function for computing kriging predictions (i.e. conditional expectations).
 ##
-##' @details Not intended to be called directly. See \code{\link{predict.rlikfit}} for
+##' @details Not intended to be called directly. See 
+##'  \code{\link{predict.rlikfit}} for
 ##'		making kriging predictions from an \code{rlikfit} object.
 ## 
 ##' @param reg.dat matrix of regression data
@@ -55,28 +56,33 @@ k.pred <- function(reg.dat,dim.X,beta,log.cov.pars)
 ##' @name varcov.eff
 ##' @title Creates exponential covariance matrix
 ##
-##' @description Creates a covariance matrix according to an expontial model.
-##
-## details Details to be added.
+##' @description Given covariance parameters, creates a covariance matrix
+##'		according to an expoential model.
+## 
+##' @details If the sill and range are zero
 ##' @author Paul Sampson
 ##
-##' @param coords Coordiantes
+##' @param coords coordinates.
 ##' @param pars A vector of three log covariance parameters: nugget, sill, and range.
+##'	@param cov.model character string 
 ##
 ##' @return Returns an \eqn{n x n} matrix.
 ##' @importFrom stats dist
-varcov.eff <- function(coords, pars)
+##' @export
+varcov.eff <- function(coords, pars, cov.model)
 {
   eye <- diag(1,nrow(coords))
-  d <- as.matrix(stats::dist(coords))
-  Sig <- exp(pars[1])*eye+exp(pars[2])*exp(-d/exp(pars[3]))
+  if (cov.model=="iid"){
+  	Sig <- exp(pars[1])*eye
+  } else if (cov.model=="exp"){
+	d <- as.matrix(stats::dist(coords))
+  	Sig <- exp(pars[1])*eye+exp(pars[2])*exp(-d/exp(pars[3]))
+  } else {
+  	stop(cat("Covariance ", cov.model, " unsupported."))
+  }
   Sig
 }
 
-
-##### TO do here:
-# Remove the inversion of Sigma from this function,
-# and streamline remaining code.
 
 #=========================================
 #Block diagonal spatial covariance matrix:
@@ -87,22 +93,24 @@ varcov.eff <- function(coords, pars)
 ##' @description To do.
 ##
 ##' @details Details to be added.
-##' @author Paul Sampson, Josh Keller
+##' @author Paul Sampson, Joshua Keller
 ##
-##' @param l.pars Log covariance parameters
-##' @param coords Coordiantes
+##' @param pars Log covariance parameters for the regionalized kriging model.
+##'			See \code{\link{rlikfit}}.
+##' @param coords Coordinates of the locations
 ##' @param reg.ind Vector of region indicators
-block.Sig <- function(l.pars, coords, reg.ind)
+##' @param cov.model Covariance models for each region.
+block.Sig <- function(pars, coords, reg.ind, cov.model)
 {
   coords <- coords[order(reg.ind),]
   reg.ind <- reg.ind[order(reg.ind)]
   n.vec <- as.vector(by(reg.ind,reg.ind,length))
   cum <- cumsum(n.vec)
   Sig <- matrix(0,nrow(coords),nrow(coords))
-  Sig[1:n.vec[1],1:n.vec[1]]<- varcov.eff(coords[1:n.vec[1],],l.pars[1:3])
+  Sig[1:n.vec[1],1:n.vec[1]]<- varcov.eff(coords[1:n.vec[1],], pars[1:3], cov.model[1])
   if (length(n.vec)>1) {
     for (j in 2:length(cum)) {
-        Sig[(cum[j-1]+1):(cum[j]),(cum[j-1]+1):(cum[j])] <- varcov.eff(coords[(cum[j-1]+1):(cum[j]),],l.pars[(3*j-2):(3*j)])
+        Sig[(cum[j-1]+1):(cum[j]),(cum[j-1]+1):(cum[j])] <- varcov.eff(coords[(cum[j-1]+1):(cum[j]),], pars[(3*j-2):(3*j)], cov.model[j])
     }
   }
 #  Sig.inv <- chol2inv(chol(Sig))
@@ -128,17 +136,20 @@ block.Sig <- function(l.pars, coords, reg.ind)
 ##'
 ##' @author Paul Sampson, Casey Olives, Joshua Keller
 ##'
-##' @param l.pars Log covariance parameters
+##' @param pars Log covariance parameters
 ##' @param X kriging covariates
-##' @param coords Coordiantes
+##' @param coords Coordinates
 ##' @param reg.ind Vector of region indicators
 ##' @param y outcome variable
-##' @param Sig block-diagonal covariance matrix. Default value is \code{NULL}, and the
-##'			matrix is computed by a call to \code{\link{block.Sig}}. 
+##' @param cov.model Covariance model specifications. Not required if \code{Sig}
+##'			provided.
+##' @param Sig block-diagonal covariance matrix. Default value is \code{NULL},
+##'        and the matrix is computed by a call to \code{\link{block.Sig}}. 
 ##'			If it is already computed, providing it can speed up code.
 ##' @param useSTpackage See Details.
 ##
-inf.beta<- function(l.pars, X, coords, reg.ind, y, Sig=NULL, useSTpackage=TRUE)
+##' @return A vector of the regression parameters.
+inf.beta<- function(pars, X, coords, reg.ind, y, cov.model=NULL, Sig=NULL, useSTpackage=TRUE)
 {
   if (useSTpackage  && !requireNamespace("SpatioTemporal", quietly = TRUE)) {
 		useSTpackage <- FALSE
@@ -151,7 +162,7 @@ inf.beta<- function(l.pars, X, coords, reg.ind, y, Sig=NULL, useSTpackage=TRUE)
   reg.ind <- reg.ind[order(reg.ind)]
   n.vec <- as.vector(by(reg.ind,reg.ind,length))
   if (is.null(Sig)){
-  	Sig <- block.Sig(l.pars,coords,reg.ind)
+  	Sig <- block.Sig(pars,coords,reg.ind, cov.model)
   }
   if(useSTpackage){
 	Sig <- SpatioTemporal::makeCholBlock(Sig, n.blocks=length(n.vec), block.sizes=n.vec)

@@ -4,16 +4,10 @@
 \alias{rlikfit}
 \title{Likelihood Fit for Regoinalized Universal Kriging Model}
 \usage{
-rlikfit(pars, y, X, coords, reg.ind, hess = TRUE, optim.args = NULL)
+rlikfit(y, X, coords, reg.ind, cov.model = "exp", init.pars = NULL,
+  hess = TRUE, optim.args = NULL)
 }
 \arguments{
-\item{pars}{Vector of initial starting values for log-covariance parameters. 
-Should have length \eqn{3r}, where    
-where \eqn{r} is the number of 
-distinct regions. Values should follow the order of nugget (\eqn{\tau}),
-sill (\eqn{\sigma}), and range (\eqn{\phi}). 
-e.g. c(tau1,sigma1,rho1,tau2,sigma2,rho2,tau3,sigma3,rho3)}
-
 \item{y}{Dependent variable to be modeled}
 
 \item{X}{\eqn{n x d} matrix of kriging covariates for the mean component}
@@ -22,6 +16,12 @@ e.g. c(tau1,sigma1,rho1,tau2,sigma2,rho2,tau3,sigma3,rho3)}
 
 \item{reg.ind}{\eqn{N}-vector of distinct kriging regions.  Defaults to  \code{reg.ind = rep(1,N)}, 
 which yields traditional universal kriging.}
+
+\item{cov.model}{Either a single character string or named vector providing
+the covariance model to be used. Valid values are "exp" and "iid". If
+    only one value is provided, it is used for all regions.}
+
+\item{init.pars}{Vector of initial starting values for log-covariance parameters.  See details.}
 
 \item{hess}{Logical; whether or not to compute hessian and test whether it is positive-definite.}
 
@@ -41,7 +41,21 @@ Maximizes a kriging likelihood that can include a regionalized variogram and reg
 \details{
 The maximization is done via profile likelihood, using the function \code{\link{prof.rlik}}.
 
- The default upper bound for the nugget and sill is log(10), and the default lower bound is log(0.0001). Default bounds for the range are log(0.001) and log(5000). FINISH
+ If provided, the initial parameters should be given 
+ as a vector of length 3 times the number of distinct regions.
+ Values should follow the order of nugget,
+ sill, and range for each region in succession. For example, if there are three
+ regions the vector c(tau1,sigma1,rho1,tau2,sigma2,rho2,tau3,sigma3,rho3) should 
+ be given. If unspecifed, default initial values of 0 (on the log scale) 
+ are used.
+
+ 
+ By default, the opimization is done using the 'L-BFGS-B' method of
+ \code{\link{optim}}. 
+ The default upper bound for the nugget and sill is log(10), and
+ the default lower bound is log(0.0001). Default bounds for the range
+ are log(0.001) and log(5000). These can be modified by providing 
+ 'upper' and 'lower' values in \code{optim.args}.
 }
 \author{
 Joshua Keller, Paul Sampson

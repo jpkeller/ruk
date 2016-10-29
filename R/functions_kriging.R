@@ -15,20 +15,33 @@
 ##
 ##' @details The maximization is done via profile likelihood, using the function \code{\link{prof.rlik}}.
 ##'
-##'  The default upper bound for the nugget and sill is log(10), and the default lower bound is log(0.0001). Default bounds for the range are log(0.001) and log(5000). FINISH
-#
-#  Input:
-##' @param  pars  Vector of initial starting values for log-covariance parameters. 
-##'  Should have length \eqn{3r}, where	
-##'  where \eqn{r} is the number of 
-##'  distinct regions. Values should follow the order of nugget (\eqn{\tau}),
-##'	 sill (\eqn{\sigma}), and range (\eqn{\phi}). 
-##'  e.g. c(tau1,sigma1,rho1,tau2,sigma2,rho2,tau3,sigma3,rho3)
+##'  If provided, the initial parameters should be given 
+##'	 as a vector of length 3 times the number of distinct regions.
+##'	 Values should follow the order of nugget,
+##'	 sill, and range for each region in succession. For example, if there are three
+##'  regions the vector c(tau1,sigma1,rho1,tau2,sigma2,rho2,tau3,sigma3,rho3) should 
+##'	 be given. If unspecifed, default initial values of 0 (on the log scale) 
+##'  are used.
+##'
+##'  
+##'  By default, the opimization is done using the 'L-BFGS-B' method of
+##'  \code{\link{optim}}. 
+##'  The default upper bound for the nugget and sill is log(10), and
+##'  the default lower bound is log(0.0001). Default bounds for the range
+##'  are log(0.001) and log(5000). These can be modified by providing 
+##'  'upper' and 'lower' values in \code{optim.args}.
+##
+## Input:
+##
 ##' @param y Dependent variable to be modeled
 ##' @param  X  \eqn{n x d} matrix of kriging covariates for the mean component
 ##' @param coords \eqn{N x 2} matrix of coordinates
 ##' @param reg.ind \eqn{N}-vector of distinct kriging regions.  Defaults to  \code{reg.ind = rep(1,N)}, 
 ##'		which yields traditional universal kriging.
+##' @param cov.model Either a single character string or named vector providing
+##'		the covariance model to be used. Valid values are "exp" and "iid". If
+##' 		only one value is provided, it is used for all regions.
+##' @param  init.pars  Vector of initial starting values for log-covariance parameters.  See details.
 ##' @param hess Logical; whether or not to compute hessian and test whether it is positive-definite.
 ## 	A positive-definite hessian is a good indicator that true log-likelihood max has been found
 ##' @param optim.args List of arguments passed to \code{\link{optim}}. See details.
@@ -45,22 +58,44 @@
 ##'  \item{r}{ Number of regions}
 #
 ##' @importFrom stats optim
-rlikfit <- function(pars, y, X, coords, reg.ind,  hess=TRUE, optim.args=NULL)
+rlikfit <- function(y, X, coords, reg.ind, cov.model="exp", init.pars=NULL, hess=TRUE, optim.args=NULL)
 {
-  X <- X[order(reg.ind),, drop=FALSE]
-  coords <- coords[order(reg.ind),]
-  y <- y[order(reg.ind)]
-  reg.ind <- reg.ind[order(reg.ind)]
-  n.vec <- as.vector(by(reg.ind,reg.ind,length))
-  r <- length(n.vec)
-  
-  optim.args.default <- list(method="L-BFGS-B",lower=rep(c(log(0.0001),log(0.0001),log(0.001)),length(n.vec)),upper=rep(c(log(10),log(10),log(5000)),length(n.vec)),hessian=TRUE)
-defaultargs <- which(!names(optim.args.default) %in% names(optim.args))
-optim.args <- c(optim.args, optim.args.default[defaultargs])
+	u.reg <- unique(reg.ind)
+	r <- length(u.reg)
+	ind.order <- order(reg.ind)
 
-  opt <- do.call(stats::optim, args=c(list(par=pars, fn=prof.rlik,coords=coords, y=y, R=X, reg.ind=reg.ind), optim.args))
-  beta <- inf.beta(l.pars = opt$par, X = X, coords = coords, 
-                   reg.ind = reg.ind, y  = y)
+	if (is.null(init.pars)){
+		init.pars <- rep(c(log(1), log(1), log(1)), times=r)
+	}
+	if (length(cov.model)==1){
+		cov.model <- rep(cov.model, times=r)
+		names(cov.model) <- u.reg
+	} 
+	if (length(cov.model)!=r){
+		stop("Provided 'cov.model' not equal to the number of regions.")
+	}
+	if (!all(names(cov.model) %in% u.reg)){
+		stop("Names of 'cov.model' should match unique elements of 'reg.ind'.")
+	}
+	cov.model <- cov.model[unique(reg.ind[ind.order])]
+
+	
+	
+	X <- X[ind.order,, drop=FALSE]
+  	coords <- coords[ind.order,]
+  	y <- y[ind.order]
+  	reg.ind <- reg.ind[ind.order]
+  	n.vec <- as.vector(by(reg.ind,reg.ind,length))
+
+
+  	# Set default optim values.
+  	optim.args.default <- list(method="L-BFGS-B",lower=rep(c(log(0.0001),log(0.0001),log(0.001)),length(n.vec)),upper=rep(c(log(10),log(10),log(5000)),length(n.vec)),hessian=TRUE)
+	defaultargs <- which(!names(optim.args.default) %in% names(optim.args))
+	optim.args <- c(optim.args, optim.args.default[defaultargs])
+
+  opt <- do.call(stats::optim, args=c(list(par= init.pars, fn=prof.rlik,coords=coords, y=y, X=X, reg.ind=reg.ind, cov.model= cov.model), optim.args))
+  beta <- inf.beta(pars = opt$par, X = X, coords = coords, 
+                   reg.ind = reg.ind, y  = y, cov.model=cov.model)
   # Check PD of Hessian
   if (hess) {
   	eigs <- eigen(opt$hessian, symmetric=T, only.values=T)$values
@@ -87,8 +122,10 @@ print.rlikfit <- function(x, ...) {
 	}	
 	cat("An object of class rlikfit.\n")
 	cat("Estimated log covariance parameters are:\n")
-	pm <- matrix(x$log.cov.pars, ncol=3, byrow=F, dimnames=list(paste0("Region ", 1:x$r), c("Tau", "Sigma", "Phi")))
+	pm <- matrix(x$log.cov.pars, ncol=3, byrow=TRUE, dimnames=list(paste0("Region ", 1:x$r), c("Tau", "Sigma", "Phi")))
 	print(pm)
+	cat("Estimated regression coefficients:\n")
+	print(t(x$beta))
 } ##print.rlikfit()
 
 ##' @title Compute summary details for class \code{rlikfit}
@@ -203,30 +240,35 @@ predict.rlikfit <- function(object, X.mon, coords.mon, reg.mon, y, X.pred, coord
 ##
 ##' @description To do.
 ##
-##' @details If the SpatioTemporal package is available, uses block cholesky
-##'			functions within that package.
+##' @details If the SpatioTemporal package is available, 
+##'		uses block cholesky functions within that package for
+##'		improved performance.
+##'
+##'		This function is primarily intended to be called
+##'		via \code{\link{rlikfit}}, and thus has limited 
+##'		checking of arguments.
+##'
 ##' @author Paul Sampson, Josh Keller
 ##'
-##' @param x Log covariance parameters
-##' @param R Kriging covariate model matrix
+##' @param pars Log covariance parameters
+##' @param X Kriging covariate model matrix
 ##'	@param coords Coordinates
 ##' @param reg.ind Region indicator
 ##' @param y Observed outcome values.
+##' @param cov.model Covariance model for each region.
 ##' @param useSTpackage See details.
 ##
 ##' @export
 ##' @importFrom stats mahalanobis
 ##' @seealso \link{rlikfit}
-prof.rlik <- function(x, R, coords, reg.ind, y, useSTpackage=TRUE)
+prof.rlik <- function(pars, X, coords, reg.ind, y, cov.model="exp", useSTpackage=TRUE)
 {
  if (useSTpackage  && !requireNamespace("SpatioTemporal", quietly = TRUE)) {
 		useSTpackage <- FALSE
 		warning("Argument 'useSTpackage' is TRUE, but SpatioTemporal package not available. Setting to FALSE.")
   }
-  l.pars <- x
-  m.mat <- R
-  Sig <- block.Sig(l.pars,coords,reg.ind)
-  beta <- inf.beta(l.pars, X= m.mat, coords, reg.ind, y, Sig=Sig, useSTpackage= useSTpackage)
+  Sig <- block.Sig(pars,coords,reg.ind, cov.model)
+  beta <- inf.beta(pars=pars, X= X, coords, reg.ind, y, cov.model=cov.model, Sig=Sig, useSTpackage= useSTpackage)
 
   if(useSTpackage){
   	n.vec <- as.vector(by(reg.ind,reg.ind,length))
@@ -237,7 +279,7 @@ prof.rlik <- function(x, R, coords, reg.ind, y, useSTpackage=TRUE)
 	Sig.inv <- chol2inv(Sig)
   }
 
- distval  <- stats::mahalanobis(x=y, center=m.mat%*%beta, cov=Sig.inv, inverted=T)
+ distval  <- stats::mahalanobis(x=as.numeric(y), center=X%*%beta, cov=Sig.inv, inverted=T)
  logdet <- 2*sum(log(diag(Sig)))
  lik <- -(length(y)*log(2 * pi) + logdet + distval)/2
 -lik
