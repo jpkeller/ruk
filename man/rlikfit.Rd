@@ -5,27 +5,29 @@
 \title{Likelihood Fit for Regoinalized Universal Kriging Model}
 \usage{
 rlikfit(y, X, coords, reg.ind, cov.model = "exp", init.pars = NULL,
-  hess = TRUE, optim.args = NULL)
+  optim.args = NULL)
 }
 \arguments{
 \item{y}{Dependent variable to be modeled}
 
-\item{X}{\eqn{n x d} matrix of kriging covariates for the mean component}
+\item{X}{A \eqn{n x d} matrix of kriging covariates
+for the mean component.}
 
 \item{coords}{\eqn{N x 2} matrix of coordinates}
 
-\item{reg.ind}{\eqn{N}-vector of distinct kriging regions.  Defaults to  \code{reg.ind = rep(1,N)}, 
+\item{reg.ind}{\eqn{N}-vector of distinct kriging regions.
+Defaults to  \code{reg.ind = rep(1,N)}, 
 which yields traditional universal kriging.}
 
-\item{cov.model}{Either a single character string or named vector providing
-the covariance model to be used. Valid values are "exp" and "iid". If
-    only one value is provided, it is used for all regions.}
+\item{cov.model}{Either a single character string or 
+a named vector providing the covariance model to be used.
+Valid values are "exp" and "iid". If only one value is provided,
+it is used for all regions.}
 
-\item{init.pars}{Vector of initial starting values for log-covariance parameters.  See details.}
+\item{init.pars}{Vector of initial starting values 
+for log-covariance parameters.}
 
-\item{hess}{Logical; whether or not to compute hessian and test whether it is positive-definite.}
-
-\item{optim.args}{List of arguments passed to \code{\link{optim}}. See details.}
+\item{optim.args}{List of named arguments passed to \code{\link{optim}}.}
 }
 \value{
 An object of class 'rlikfit' containing:
@@ -36,26 +38,38 @@ An object of class 'rlikfit' containing:
  \item{r}{ Number of regions}
 }
 \description{
-Maximizes a kriging likelihood that can include a regionalized variogram and regionalized coefficients.
+Computes maximum likelihood estimates for parameters
+		in a universal kriging model with regionally-varying
+		covariance parameters.
 }
 \details{
-The maximization is done via profile likelihood, using the function \code{\link{prof.rlik}}.
-
- If provided, the initial parameters should be given 
- as a vector of length 3 times the number of distinct regions.
- Values should follow the order of nugget,
- sill, and range for each region in succession. For example, if there are three
- regions the vector c(tau1,sigma1,rho1,tau2,sigma2,rho2,tau3,sigma3,rho3) should 
- be given. If unspecifed, default initial values of 0 (on the log scale) 
- are used.
-
- 
+The MLEs are obtained by maximizing the profile
+	likelihood (see \code{\link{prof.rlik}}).
  By default, the opimization is done using the 'L-BFGS-B' method of
  \code{\link{optim}}. 
+
+ If provided, the initial (log) parameters should be given 
+ as a vector of length 3 times the number of distinct regions.
+ Values should follow the order of nugget,
+ sill, and range for each region in succession. 
+ For example, if there are three regions the vector 
+ c(tau1, sigma1, rho1, tau2, sigma2, rho2, tau3, sigma3, rho3) should 
+ be given. If unspecifed, default initial values of 0 (on the log scale) 
+ are used.
  The default upper bound for the nugget and sill is log(10), and
  the default lower bound is log(0.0001). Default bounds for the range
  are log(0.001) and log(5000). These can be modified by providing 
  'upper' and 'lower' values in \code{optim.args}.
+
+ Regionally-varying coefficients for regression parameters
+ are not explicitly implemented. However, they can be obtained
+ by supplying the covariate matri \code{X} with suitable block
+ structure.  
+
+ Setting \code{cov.model='iid'} for all regions is equivalent
+ to ordinary least squares regression, but this function is
+ is not currently optimized for this use case and will likely
+ be much slower and less precise than \code{\link{lm}}.
 }
 \author{
 Joshua Keller, Paul Sampson

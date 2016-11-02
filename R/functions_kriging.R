@@ -11,40 +11,54 @@
 ##' @name rlikfit
 ##' @title Likelihood Fit for Regoinalized Universal Kriging Model
 ##
-##' @description Maximizes a kriging likelihood that can include a regionalized variogram and regionalized coefficients.
+##' @description Computes maximum likelihood estimates for parameters
+##'			in a universal kriging model with regionally-varying
+##'			covariance parameters.
 ##
-##' @details The maximization is done via profile likelihood, using the function \code{\link{prof.rlik}}.
-##'
-##'  If provided, the initial parameters should be given 
-##'	 as a vector of length 3 times the number of distinct regions.
-##'	 Values should follow the order of nugget,
-##'	 sill, and range for each region in succession. For example, if there are three
-##'  regions the vector c(tau1,sigma1,rho1,tau2,sigma2,rho2,tau3,sigma3,rho3) should 
-##'	 be given. If unspecifed, default initial values of 0 (on the log scale) 
-##'  are used.
-##'
-##'  
+##' @details The MLEs are obtained by maximizing the profile
+##'		likelihood (see \code{\link{prof.rlik}}).
 ##'  By default, the opimization is done using the 'L-BFGS-B' method of
 ##'  \code{\link{optim}}. 
+##'
+##'  If provided, the initial (log) parameters should be given 
+##'	 as a vector of length 3 times the number of distinct regions.
+##'	 Values should follow the order of nugget,
+##'	 sill, and range for each region in succession. 
+##'  For example, if there are three regions the vector 
+##'  c(tau1, sigma1, rho1, tau2, sigma2, rho2, tau3, sigma3, rho3) should 
+##'	 be given. If unspecifed, default initial values of 0 (on the log scale) 
+##'  are used.
 ##'  The default upper bound for the nugget and sill is log(10), and
 ##'  the default lower bound is log(0.0001). Default bounds for the range
 ##'  are log(0.001) and log(5000). These can be modified by providing 
 ##'  'upper' and 'lower' values in \code{optim.args}.
+##'
+##'  Regionally-varying coefficients for regression parameters
+##'	 are not explicitly implemented. However, they can be obtained
+##'	 by supplying the covariate matri \code{X} with suitable block
+##'	 structure.  
+##'
+##'	 Setting \code{cov.model='iid'} for all regions is equivalent
+##'	 to ordinary least squares regression, but this function is
+##'	 is not currently optimized for this use case and will likely
+##'	 be much slower and less precise than \code{\link{lm}}.
 ##
 ## Input:
 ##
 ##' @param y Dependent variable to be modeled
-##' @param  X  \eqn{n x d} matrix of kriging covariates for the mean component
+##' @param  X  A \eqn{n x d} matrix of kriging covariates
+##'      for the mean component.
 ##' @param coords \eqn{N x 2} matrix of coordinates
-##' @param reg.ind \eqn{N}-vector of distinct kriging regions.  Defaults to  \code{reg.ind = rep(1,N)}, 
+##' @param reg.ind \eqn{N}-vector of distinct kriging regions.  
+##'		Defaults to  \code{reg.ind = rep(1,N)}, 
 ##'		which yields traditional universal kriging.
-##' @param cov.model Either a single character string or named vector providing
-##'		the covariance model to be used. Valid values are "exp" and "iid". If
-##' 		only one value is provided, it is used for all regions.
-##' @param  init.pars  Vector of initial starting values for log-covariance parameters.  See details.
-##' @param hess Logical; whether or not to compute hessian and test whether it is positive-definite.
-## 	A positive-definite hessian is a good indicator that true log-likelihood max has been found
-##' @param optim.args List of arguments passed to \code{\link{optim}}. See details.
+##' @param cov.model Either a single character string or 
+##'		a named vector providing the covariance model to be used.
+##'     Valid values are "exp" and "iid". If only one value is provided,
+##'     it is used for all regions.
+##' @param  init.pars  Vector of initial starting values 
+##'    for log-covariance parameters.
+##' @param optim.args List of named arguments passed to \code{\link{optim}}. 
 ##
 ##' @author Joshua Keller, Paul Sampson
 ##' @export
@@ -58,8 +72,11 @@
 ##'  \item{r}{ Number of regions}
 #
 ##' @importFrom stats optim
-rlikfit <- function(y, X, coords, reg.ind, cov.model="exp", init.pars=NULL, hess=TRUE, optim.args=NULL)
+rlikfit <- function(y, X, coords, reg.ind, cov.model="exp", init.pars=NULL, optim.args=NULL)
 {
+	if (missing(reg.ind)){
+		reg.ind <- rep(1, length(y))
+	}
 	u.reg <- unique(reg.ind)
 	r <- length(u.reg)
 	ind.order <- order(reg.ind)
@@ -67,6 +84,9 @@ rlikfit <- function(y, X, coords, reg.ind, cov.model="exp", init.pars=NULL, hess
 	if (is.null(init.pars)){
 		init.pars <- rep(c(log(1), log(1), log(1)), times=r)
 	}
+	# if (length(init.pars)!=3*r){
+		# stop("init.pars has incorrect length.")
+	# }
 	if (length(cov.model)==1){
 		cov.model <- rep(cov.model, times=r)
 		names(cov.model) <- u.reg
@@ -80,30 +100,26 @@ rlikfit <- function(y, X, coords, reg.ind, cov.model="exp", init.pars=NULL, hess
 	cov.model <- cov.model[unique(reg.ind[ind.order])]
 
 	
-	
 	X <- X[ind.order,, drop=FALSE]
   	coords <- coords[ind.order,]
   	y <- y[ind.order]
   	reg.ind <- reg.ind[ind.order]
   	n.vec <- as.vector(by(reg.ind,reg.ind,length))
 
-
   	# Set default optim values.
-  	optim.args.default <- list(method="L-BFGS-B",lower=rep(c(log(0.0001),log(0.0001),log(0.001)),length(n.vec)),upper=rep(c(log(10),log(10),log(5000)),length(n.vec)),hessian=TRUE)
+  	optim.args.default <- list(method="L-BFGS-B", lower=rep(c(log(0.0001),log(0.0001),log(0.001)),length(n.vec)),upper=rep(c(log(10),log(10),log(5000)),length(n.vec)),hessian=TRUE)
 	defaultargs <- which(!names(optim.args.default) %in% names(optim.args))
 	optim.args <- c(optim.args, optim.args.default[defaultargs])
 
   opt <- do.call(stats::optim, args=c(list(par= init.pars, fn=prof.rlik,coords=coords, y=y, X=X, reg.ind=reg.ind, cov.model= cov.model), optim.args))
-  beta <- inf.beta(pars = opt$par, X = X, coords = coords, 
+  	beta <- inf.beta(pars = opt$par, X = X, coords = coords, 
                    reg.ind = reg.ind, y  = y, cov.model=cov.model)
-  # Check PD of Hessian
-  if (hess) {
   	eigs <- eigen(opt$hessian, symmetric=T, only.values=T)$values
-  	hess.pd <- sum(eigs>(length(eigs)*.Machine$double.eps))==length(eigs) 
-  }
-  if (hess)
-   out <- list('log.cov.pars'=opt$par,'beta'=beta,'max.log.lik'=-opt$value,'hess.pd'= hess.pd, 'r'=r)
- if (!hess) out <- list('log.cov.pars'=opt$par,'beta'=beta,'max.log.lik'=-opt$value, 'r'=r)
+  	# Note that this is hessian of *negative* log likelihood, so
+  	# positive def = negative definite hessian = maximum.
+  	hess.pd <- sum(eigs>(length(eigs)*.Machine$double.eps))==length(eigs)
+  	if (!hess.pd) warning("Hessian not negative definite.")
+  out <- list('log.cov.pars'=opt$par,'beta'=beta,'max.log.lik'=-opt$value,'hess.pd'= hess.pd, 'r'=r, 'cov.model'=cov.model, 'opt'=opt)
   class(out) <- "rlikfit"
   out
 }
@@ -122,10 +138,17 @@ print.rlikfit <- function(x, ...) {
 	}	
 	cat("An object of class rlikfit.\n")
 	cat("Estimated log covariance parameters are:\n")
-	pm <- matrix(x$log.cov.pars, ncol=3, byrow=TRUE, dimnames=list(paste0("Region ", 1:x$r), c("Tau", "Sigma", "Phi")))
-	print(pm)
-	cat("Estimated regression coefficients:\n")
-	print(t(x$beta))
+	cov.pars <- matrix(NA, nrow=x$r, ncol=3)
+	ii <- 0
+	for (i in 1:x$r){
+		cov.inds <- if(x$cov.model[i]=="exp") {ii + 1:3} else {ii + 1}
+		cov.pars[i,1:length(cov.inds)] <- x$log.cov.pars[cov.inds]
+		ii <- max(cov.inds)
+	}
+	pm <- matrix(cov.pars, ncol=3, byrow=TRUE, dimnames=list(paste0("Region ", 1:x$r), c("Tau", "Sigma", "Phi")))
+	rownames(cov.pars) <- names(x$cov.model)
+	colnames(cov.pars) <- c("Tau", "Sigma", "Phi")
+	print(cov.pars)
 } ##print.rlikfit()
 
 ##' @title Compute summary details for class \code{rlikfit}
@@ -143,17 +166,25 @@ summary.rlikfit <- function(object, ...) {
 print.summary.rlikfit <- function(x, ...){
 	cat("An object of class rlikfit.\n")
 	cat("Estimated log covariance parameters are:\n")
-	pm <- matrix(x$log.cov.pars, ncol=1)
-	rownames(pm) <-  paste0("Region ", outer(1: x $r, c("Tau", "Sigma", "Phi"), paste))
+	pm <- matrix(NA, nrow=x$r*3, ncol=2)	
+	cov.ind.count <- sapply(ifelse(x$cov.model=="exp", 3, 1), function(w) 1:w)	
+	cov.ind <- unlist(mapply("+", cov.ind.count, 3*(0:(x$r-1))))
+	pm[cov.ind, 1] <- x$log.cov.pars
+	rownames(pm) <- paste(rep(names(x$cov.model), each=3), rep(c("Tau", "Sigma", "Phi"), times=x$r))
+	pm[cov.ind, 2] <- suppressWarnings(sqrt(diag(x$opt$hessian)))
 	print(pm)
+	if (any(is.nan(pm[,2]))) {
+		cat("Warning: Hessian not positive definite, MLE\n")
+		cat("         may not have been reached.\n")}
+	cat("\nEstimated regression coefficients:\n")
+	print(t(x$beta))
 }
 
 
 
 
 
-
-#=======================================================================
+#=================================================================
 # 
 #
 # likfit.obj: Object output from my.likfit()
@@ -167,8 +198,8 @@ print.summary.rlikfit <- function(x, ...){
 #
 # Returns: N x 2 matrix, where N is the number of prediction locations;
 # 1st column contains predictions, 2nd column contains prediction variances
-#=======================================================================
-#=======================================================================
+#====================================================================
+#====================================================================
 ##' @name predict.rlikfit
 ##' @title Predict from a regionalized kriging model
 ##
@@ -198,7 +229,8 @@ predict.rlikfit <- function(object, X.mon, coords.mon, reg.mon, y, X.pred, coord
   n1 <- nrow(coords.mon)
   n2 <- nrow(coords.pred)
   p.ind <- c(rep(1,n1),rep(2,n2))
-  X.all <- stats::model.matrix(~ -1+ rbind(X.mon,X.pred))
+#  X.all <- stats::model.matrix(~ -1+ rbind(X.mon,X.pred))
+  X.all <- rbind(X.mon,X.pred)
   dim.X <- ncol(X.all)
   coords.all <- rbind(coords.mon,coords.pred)
   reg.all <- c(reg.mon,reg.pred)
@@ -212,13 +244,22 @@ predict.rlikfit <- function(object, X.mon, coords.mon, reg.mon, y, X.pred, coord
   uq.regs <- unique(dat.all$reg.all)
   n.regs <- length(uq.regs)
   
+  n.pars <- ifelse(object$cov.model=="exp", 3, 1)
+  cum.pars <- cumsum(n.pars)
+  
   regional.new <- NULL
   for (j in 1:length(uq.regs))
   {
       regional.old <- regional.new
       regional.dat <- c.o[which(c.o$reg.all==uq.regs[j]),]
-      regional.new <- rbind(regional.old,
-                            k.pred(regional.dat,dim.X,beta,log.cov.pars[(3*j-2):(3*j)]))
+     if (j==1){
+       regional.new <- rbind(regional.old,
+       k.pred(regional.dat,dim.X,beta,log.cov.pars[1:(cum.pars[j])], cov.model=object$cov.model[j]))
+     } else {
+       regional.new <- rbind(regional.old,
+       k.pred(regional.dat,dim.X,beta,log.cov.pars[(cum.pars[j-1]+1):(cum.pars[j])], cov.model=object$cov.model[j]))
+     }
+
   }
   
   predictions <- regional.new[match(pred.id,regional.new$mp.ind),]
@@ -236,14 +277,11 @@ predict.rlikfit <- function(object, X.mon, coords.mon, reg.mon, y, X.pred, coord
 # log density
 # Found to be ~50% faster than original prof.lik
 ##' @name prof.rlik
-##' @title Evaluates profile likelihood function for (regionalized) universal kriging.
+##' @title Profile Likelihood for Kriging
 ##
-##' @description To do.
+##' @description Evaluates profile likelihood function for (regionalized) universal kriging model.
 ##
-##' @details If the SpatioTemporal package is available, 
-##'		uses block cholesky functions within that package for
-##'		improved performance.
-##'
+##' @details 
 ##'		This function is primarily intended to be called
 ##'		via \code{\link{rlikfit}}, and thus has limited 
 ##'		checking of arguments.
@@ -256,8 +294,11 @@ predict.rlikfit <- function(object, X.mon, coords.mon, reg.mon, y, X.pred, coord
 ##' @param reg.ind Region indicator
 ##' @param y Observed outcome values.
 ##' @param cov.model Covariance model for each region.
-##' @param useSTpackage See details.
-##
+##' @param useSTpackage Logical. If the SpatioTemporal package is available, 
+##'		uses block cholesky functions within that package for
+##'		improved performance.
+##' @return Scalar value giving the *negative* log profile likelihood
+##'		for the kriging model.
 ##' @export
 ##' @importFrom stats mahalanobis
 ##' @seealso \link{rlikfit}
@@ -282,7 +323,7 @@ prof.rlik <- function(pars, X, coords, reg.ind, y, cov.model="exp", useSTpackage
  distval  <- stats::mahalanobis(x=as.numeric(y), center=X%*%beta, cov=Sig.inv, inverted=T)
  logdet <- 2*sum(log(diag(Sig)))
  lik <- -(length(y)*log(2 * pi) + logdet + distval)/2
--lik
+ -lik
 }
 
 # prof.rlik.orig <- function(x, R, coords, reg.ind, y)

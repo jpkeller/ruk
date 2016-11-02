@@ -4,7 +4,7 @@
 \alias{k.pred}
 \title{Kriging predictions}
 \usage{
-k.pred(reg.dat, dim.X, beta, log.cov.pars)
+k.pred(reg.dat, dim.X, beta, log.cov.pars, cov.model)
 }
 \arguments{
 \item{reg.dat}{matrix of regression data}

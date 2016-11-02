@@ -26,14 +26,14 @@
 ##'	@param log.cov.pars TBA
 ##
 ##' @keywords internal
-k.pred <- function(reg.dat,dim.X,beta,log.cov.pars)
+k.pred <- function(reg.dat,dim.X,beta,log.cov.pars, cov.model)
 {
   ind <- as.vector(by(reg.dat,reg.dat$p.ind,nrow))
   nm <- ind[1]
   nt <- sum(ind)
   y <- reg.dat$y.all[which(reg.dat$p.ind==1)]
   mu <- as.matrix(reg.dat[1:nm,3:(2+dim.X)])%*%beta
-  vcov <- varcov.eff(reg.dat[,1:2],log.cov.pars)
+  vcov <- varcov.eff(reg.dat[,1:2],log.cov.pars, cov.model=cov.model)
   vcov12 <- vcov[1:nm,(nm+1):nt]
   vcov11 <- vcov[1:nm,1:nm]
   vcov22 <- vcov[(nm+1):nt,(nm+1):nt]
@@ -101,6 +101,28 @@ varcov.eff <- function(coords, pars, cov.model)
 ##' @param reg.ind Vector of region indicators
 ##' @param cov.model Covariance models for each region.
 block.Sig <- function(pars, coords, reg.ind, cov.model)
+{
+  coords <- coords[order(reg.ind),]
+  reg.ind <- reg.ind[order(reg.ind)]
+  n.vec <- as.vector(by(reg.ind,reg.ind,length))
+  cum <- cumsum(n.vec)
+  
+  n.pars <- ifelse(cov.model=="exp", 3, 1)
+  cum.pars <- cumsum(n.pars)
+  Sig <- matrix(0,nrow(coords),nrow(coords))
+  Sig[1:n.vec[1],1:n.vec[1]]<- varcov.eff(coords[1:n.vec[1],], pars[1: cum.pars[1]], cov.model[1])
+  if (length(n.vec)>1) {
+    for (j in 2:length(cum)) {
+        Sig[(cum[j-1]+1):(cum[j]),(cum[j-1]+1):(cum[j])] <- varcov.eff(coords[(cum[j-1]+1):(cum[j]),], pars[(cum.pars[j-1]+1):(cum.pars[j])], cov.model[j])
+    }
+  }
+#  Sig.inv <- chol2inv(chol(Sig))
+#  list('Sig.inv'=Sig.inv,'Sig'=Sig)
+  Sig
+}
+
+
+block.Sig0 <- function(pars, coords, reg.ind, cov.model)
 {
   coords <- coords[order(reg.ind),]
   reg.ind <- reg.ind[order(reg.ind)]
@@ -177,6 +199,7 @@ inf.beta<- function(pars, X, coords, reg.ind, y, cov.model=NULL, Sig=NULL, useST
 	  Sig.inv <- chol2inv(chol(Sig))
 	  beta <- solve(crossprod(X, Sig.inv %*% X), crossprod(X,Sig.inv %*% y))  	
   }
+  names(beta) <- colnames(X)
   beta
 }
 

@@ -1,6 +1,6 @@
 Package: ruk
 Title: Regionalized Universal Kriging
-Version: 0.0.1.1
+Version: 0.0.1.2
 Authors@R: c(person("Joshua", "Keller", email = "jkelle46@jhu.edu", role = c("aut", "cre")), person("Paul", "Sampson", role="aut"))
 Description: Implements a universal kriging model that allows for regionalized
     (independent block) structure in covariance parameters.

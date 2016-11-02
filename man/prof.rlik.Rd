@@ -2,7 +2,7 @@
 % Please edit documentation in R/functions_kriging.R
 \name{prof.rlik}
 \alias{prof.rlik}
-\title{Evaluates profile likelihood function for (regionalized) universal kriging.}
+\title{Profile Likelihood for Kriging}
 \usage{
 prof.rlik(pars, X, coords, reg.ind, y, cov.model = "exp",
   useSTpackage = TRUE)
@@ -20,17 +20,19 @@ prof.rlik(pars, X, coords, reg.ind, y, cov.model = "exp",
 
 \item{cov.model}{Covariance model for each region.}
 
-\item{useSTpackage}{See details.}
+\item{useSTpackage}{Logical. If the SpatioTemporal package is available, 
+uses block cholesky functions within that package for
+improved performance.}
+}
+\value{
+Scalar value giving the *negative* log profile likelihood
+	for the kriging model.
 }
 \description{
-To do.
+Evaluates profile likelihood function for (regionalized) universal kriging model.
 }
 \details{
-If the SpatioTemporal package is available, 
-	uses block cholesky functions within that package for
-	improved performance.
-
-	This function is primarily intended to be called
+This function is primarily intended to be called
 	via \code{\link{rlikfit}}, and thus has limited 
 	checking of arguments.
 }
