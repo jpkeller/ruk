@@ -81,12 +81,6 @@ rlikfit <- function(y, X, coords, reg.ind, cov.model="exp", init.pars=NULL, opti
 	r <- length(u.reg)
 	ind.order <- order(reg.ind)
 
-	if (is.null(init.pars)){
-		init.pars <- rep(c(log(1), log(1), log(1)), times=r)
-	}
-	# if (length(init.pars)!=3*r){
-		# stop("init.pars has incorrect length.")
-	# }
 	if (length(cov.model)==1){
 		cov.model <- rep(cov.model, times=r)
 		names(cov.model) <- u.reg
@@ -98,8 +92,15 @@ rlikfit <- function(y, X, coords, reg.ind, cov.model="exp", init.pars=NULL, opti
 		stop("Names of 'cov.model' should match unique elements of 'reg.ind'.")
 	}
 	cov.model <- cov.model[unique(reg.ind[ind.order])]
-
 	
+	npars <- sum(c("exp"=3, "iid"=1)[match(cov.model, c("exp", "iid"))])
+	if (is.null(init.pars)){
+		init.pars <- rep(log(1), times= npars)
+	}
+	if (length(init.pars)!=npars){
+		stop("init.pars has incorrect length.")
+	}
+
 	X <- X[ind.order,, drop=FALSE]
   	coords <- coords[ind.order,]
   	y <- y[ind.order]
