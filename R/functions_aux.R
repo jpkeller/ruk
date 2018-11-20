@@ -199,7 +199,7 @@ inf.beta<- function(pars, X, coords, reg.ind, y, cov.model=NULL, Sig=NULL, useST
 	  Sig.inv <- chol2inv(chol(Sig))
 	  beta <- solve(crossprod(X, Sig.inv %*% X), crossprod(X,Sig.inv %*% y))  	
   }
-  names(beta) <- colnames(X)
+  rownames(beta) <- colnames(X)
   beta
 }
 

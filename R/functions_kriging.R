@@ -120,7 +120,7 @@ rlikfit <- function(y, X, coords, reg.ind, cov.model="exp", init.pars=NULL, opti
   	# positive def = negative definite hessian = maximum.
   	hess.pd <- sum(eigs>(length(eigs)*.Machine$double.eps))==length(eigs)
   	if (!hess.pd) warning("Hessian not negative definite.")
-  out <- list('log.cov.pars'=opt$par,'beta'=beta,'max.log.lik'=-opt$value,'hess.pd'= hess.pd, 'r'=r, 'cov.model'=cov.model, 'opt'=opt)
+  out <- list('log.cov.pars'=opt$par,'beta'=beta,'neg.log.lik'=opt$value,'hess.pd'= hess.pd, 'r'=r, 'cov.model'=cov.model, 'opt'=opt)
   class(out) <- "rlikfit"
   out
 }
